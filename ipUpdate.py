@@ -90,7 +90,7 @@ def postNewIP(newip):
         data = urllib.request.urlopen(urllib.request.Request(
             updateRequest,
             headers={"Accept" : 'application/json'}
-        )).read().decode('utf-8')
+        ), timeout=30).read().decode('utf-8')
         
         #mark("DEBUG", "100", "Server returned: " + data)
     except urllib.error.URLError as e:
@@ -131,7 +131,7 @@ def getProxyIP():
     for server in servs:
         try:
             mark("INFO", "100", "Getting IP from http://" + server)
-            data = urllib.request.urlopen("http://" + server).read()
+            data = urllib.request.urlopen("http://" + server, timeout=10).read()
         except urllib.error.URLError:
             mark("ERROR", "-100", "Return message format error.... Fail to grep the IP address from http://" + server)
             continue
