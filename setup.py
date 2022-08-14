@@ -169,6 +169,7 @@ else:
     print("\nError: " + message + "\n")
     sys.exit(1)
 selected = make_select(domains, MSG_SELECT_DOMAINS, 1)
+domains = selected
 
 #
 # Get list of hosts from selected domains and ask user which should be added
@@ -298,6 +299,7 @@ print("\n" + MSG_GENERATING_CFG + cfile)
 try:
     f = open(cfile, 'w')
     f.write("apikey=" + apikey + "\n")
+    f.write("domains=" + ",".join(domains) + "\n")
     f.write("host=" + hosts + "\n")
     f.write("daemon=" + daemon + "\n")
     f.write("autostart=" + autostart + "\n")

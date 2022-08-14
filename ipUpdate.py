@@ -10,7 +10,7 @@ import os
 import sys
 import time
 from datetime import datetime
-import urllib.request
+import urllib.request, urllib.error, urllib.parse
 import re
 import json
 
@@ -29,7 +29,8 @@ except IOError:
 # CONFIGURATION FILE STRUCTURE
 #
 # apikey=DNS API Key
-# host=host
+# domains=domains to update
+# host=hosts to update
 # daemon=yes|no (default=yes)
 # autostart=yes|no
 # interval=interval (default=600)
@@ -46,8 +47,8 @@ for iter in data:
     key, val = iter.rstrip('\n').split('=',1)
     keyval.append(val)
 
-apikey, host, daemon, autostart, interval  = keyval[0], keyval[1], keyval[2], keyval[3], keyval[4]
-proxyservs, pidfile, logfile, cachefile, url = keyval[5], keyval[6], keyval[7], keyval[8], keyval[9]
+apikey, domains, hosts, daemon, autostart, interval  = keyval[0], keyval[1], keyval[2], keyval[3], keyval[4], keyval[5]
+proxyservs, pidfile, logfile, cachefile, url = keyval[6], keyval[7], keyval[8], keyval[9], keyval[10]
 
 def daemonize():
     try:
@@ -84,35 +85,71 @@ def daemonize():
     os.dup2(se.fileno(), sys.stderr.fileno())
 
 def postNewIP(newip):
-    updateRequest = url + "?apikey=" + apikey + "&host=" + host
-    mark("INFO", "100", "Calling " + url + "?apikey=*****" + "&host=" + host)
-    try:
-        data = urllib.request.urlopen(urllib.request.Request(
-            updateRequest,
-            headers={"Accept" : 'application/json'}
-        ), timeout=30).read().decode('utf-8')
+    ipUpdateFailed = False
+    updateRequest = url + "?apikey=" + apikey #+ "&host=" + hosts
+    #mark("INFO", "100", "Calling " + url + "?apikey=*****" + "&host=" + hosts)
+
+    domainsToUpdate = []
+    for domain in domains.split(','):
+        domainRequest = {
+            "domain": domain,
+            "update": []
+        }
         
-        #mark("DEBUG", "100", "Server returned: " + data)
-    except urllib.error.URLError as e:
-        mark("ERROR", "-98", "Fail to post the IP of your machine {}".format(e))
-        return
-    except BaseException as e:
-        mark("ERROR", "-98", 'Failed HTTP call {}'.format(e))
-        return
+        domainsToUpdate.append(domainRequest)
+        
+        for host in hosts.split(','):
+            if domain in host:
+                update = {
+                    "type": "A",
+                    "name": host,
+                    "content": newip,
+                    "ttl": 2
+                }
+                domainRequest["update"].append(update)
 
-    try:
-        response = json.loads(data)
-    except ValueError:
-        mark("ERROR", "-99", "IP update failed. Returned content invalid: " + data)
-        return
-    if response["code"] == 0 or response["code"] == 1:
-        mark("INFO", "100", "DNSExit returned code: {} => {} ".format(response["code"], response["message"]))
+    for domain in domainsToUpdate:
+        try:
+            payload = json.dumps(domain)
 
+            mark("INFO", "100", "Calling " + url + "?apikey=***** " + payload)
+
+            data = urllib.request.urlopen(urllib.request.Request(
+                updateRequest,
+                data=payload.encode("utf-8"),
+                headers={"Accept" : 'application/json', "Content-Type" : "application/json"}
+            ), timeout=30).read().decode('utf-8')
+            
+            #mark("DEBUG", "100", "Server returned: " + data)
+        except urllib.error.URLError as e:
+            mark("ERROR", "-98", "Fail to update IP for domain {}: {}".format(domain["domain"], e))
+            return
+        except Exception as e:
+            mark("ERROR", "-98", 'Failed HTTP call for domain {}: {}'.format(domain["domain"], e))
+            return
+
+        try:
+            response = json.loads(data)
+        except ValueError:
+            mark("ERROR", "-99", "IP update failed for domain {}. Returned content invalid: {}".format(domain["domain"], data))
+            return
+        except Exception as e:
+            mark("ERROR", "-98", 'Failed to decode response {}: {}'.format(domain["domain"], e))
+            return
+
+        if response["code"] != 0 and response["code"] != 1:
+            ipUpdateFailed = True
+            mark("ERROR", "-99", "IP update failed. DNSExit returned error code: {} => {} {} ".format(response["code"], response["message"], response["details"]))
+        else:
+            mark("INFO", "100", "DNSExit returned code: {} => {}: {} ".format(response["code"], response["message"], response["details"]))
+
+    if not ipUpdateFailed:
         f = open(cachefile, 'w')
         f.write(newip)
         f.close()
-    else:
-        mark("ERROR", "-99", "IP update failed. DNSExit returned error code: {} => {} ".format(response["code"], response["message"]))
+
+        mark("INFO", "100", "All domains updated successfully.")
+
 
 def isIpChanged(newip):
     try:
