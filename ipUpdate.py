@@ -38,7 +38,7 @@ except IOError:
 # pidfile=pidfile (default=/run/ipUpdate.pid)
 # logfile=logfile (default=/var/log/dnsexit.log)
 # cachefile=cachefile (default=/tmp/dnsexit-ip.txt)
-# url==http://update.dnsexit.com/RemoteUpdate.sv
+# url=https://api.dnsexit.com/dns
 #
 ###################################################
 
@@ -86,12 +86,13 @@ def daemonize():
 
 def postNewIP(newip):
     ipUpdateFailed = False
-    updateRequest = url + "?apikey=" + apikey #+ "&host=" + hosts
-    #mark("INFO", "100", "Calling " + url + "?apikey=*****" + "&host=" + hosts)
+    updateRequest = url #+ "?apikey=" + apikey #+ "&host=" + hosts
+    mark("INFO", "100", "Calling " + updateRequest )
 
     domainsToUpdate = []
     for domain in domains.split(','):
         domainRequest = {
+            "apikey": apikey,
             "domain": domain,
             "update": []
         }
@@ -112,7 +113,7 @@ def postNewIP(newip):
         try:
             payload = json.dumps(domain)
 
-            mark("INFO", "100", "Calling " + url + "?apikey=***** " + payload)
+            mark("INFO", "100", "Calling " + url + payload)
 
             data = urllib.request.urlopen(urllib.request.Request(
                 updateRequest,
@@ -120,7 +121,7 @@ def postNewIP(newip):
                 headers={"Accept" : 'application/json', "Content-Type" : "application/json"}
             ), timeout=30).read().decode('utf-8')
             
-            #mark("DEBUG", "100", "Server returned: " + data)
+            mark("DEBUG", "100", "Server returned: " + data)
         except urllib.error.URLError as e:
             mark("ERROR", "-98", "Fail to update IP for domain {}: {}".format(domain["domain"], e))
             return

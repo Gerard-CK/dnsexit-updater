@@ -20,7 +20,7 @@ logfile = "/var/log/dnsexit.log"
 cachefile = "/tmp/dnsexit-ip.txt"
 pidfile = "/run/ipUpdate.pid"
 siteurl = "https://update.dnsexit.com"
-apiurl = "https://api.dnsexit.com/dns/ud/"
+apiurl = "https://api.dnsexit.com/dns"
 geturlfrom = siteurl + "/ipupdate/dyndata.txt"
 
 URL_VALIDATE = siteurl + "/ipupdate/account_validate.jsp"
